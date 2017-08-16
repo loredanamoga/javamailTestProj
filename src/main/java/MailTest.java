@@ -1,32 +1,28 @@
+import com.sun.org.apache.xpath.internal.SourceTree;
+
 import javax.mail.*;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMultipart;
+import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
 
 public class MailTest {
 
-    public static void main(String args[]) {
+    private String saveDirectory;
+
+    public void mailReader(String host, String user, String pass) throws IOException, MessagingException {
         try {
-            String host = "imap.gmail.com";
-            String user = "testmailevo@gmail.com";
-            String pass = "qwerty1995";
-            String to = "testmailevo@gmail.com";
-            String from = "testmailevo@gmail.com";
-            String subject = "test mail ";
-            String messageText = "Winter is comming !";
-            boolean sessionDebug = false;
-
-//            Properties properties = System.getProperties();
+//          Properties properties = System.getProperties();
             Properties properties = new Properties();
-
             properties.put("mail.imap.starttls.enable", "true");
             properties.put("mail.imap.host", host);
             properties.put("mail.imap.port", "465");
             properties.put("mail.smtp.auth", "true");
             properties.put("mail.smtp.starttls.required", "true");
 
-//            java.security.Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
+//          java.security.Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
             Session mailSession = Session.getDefaultInstance(properties);
 
             Store store = mailSession.getStore("imaps");
@@ -45,8 +41,9 @@ public class MailTest {
                 System.out.println("Subject: " + message.getSubject());
                 System.out.println("From: " + message.getFrom()[0]);
                 System.out.println("Text: " + getTextFromMessage(message));
+                downloadEmailAttachments(message.getContentType(), message, saveDirectory);
 
-            }
+                }
 
             //close the store and folder objects
             inboxFolder.close(true);
@@ -72,6 +69,7 @@ public class MailTest {
             ex.printStackTrace();
         }
     }
+
 
     private static String getTextFromMessage(Message message) throws MessagingException, IOException {
         String result = "";
@@ -101,6 +99,49 @@ public class MailTest {
             }
         }
         return result;
+    }
+
+    public static void downloadEmailAttachments(String contentType, Message message, String saveDirectory) throws MessagingException, IOException {
+
+        String messageContent = "";
+
+        // store attachment file name, separated by comma
+        String attachFiles = "";
+
+        if (contentType.contains("multipart")) {
+            // content may contain attachments
+            Multipart multiPart = (Multipart) message.getContent();
+            int numberOfParts = multiPart.getCount();
+            for (int partCount = 0; partCount < numberOfParts; partCount++) {
+                MimeBodyPart part = (MimeBodyPart) multiPart.getBodyPart(partCount);
+                if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
+                    // this part is attachment
+                    String fileName = part.getFileName();
+                    attachFiles += fileName + ", ";
+                    part.saveFile(saveDirectory + File.separator + fileName);
+                } else {
+                    // this part may be the message content
+                    messageContent = part.getContent().toString();
+                }
+            }
+
+            if (attachFiles.length() > 1) {
+                attachFiles = attachFiles.substring(0, attachFiles.length() - 2);
+            }
+        } else if (contentType.contains("text/plain")
+                || contentType.contains("text/html")) {
+            Object content = message.getContent();
+            if (content != null) {
+                messageContent = content.toString();
+            }
+        }
+        System.out.println("Message: " + messageContent);
+        System.out.println("Attachments: " + attachFiles);
+    }
+
+
+    public  void setSaveDirectory(String dir) {
+        this.saveDirectory = dir;
     }
 
 
